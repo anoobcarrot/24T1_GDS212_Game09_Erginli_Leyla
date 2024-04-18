@@ -29,17 +29,30 @@ public class ScoringSystem : MonoBehaviour
             Debug.Log("Player Score: " + playerScore);
             Debug.Log("AI Score: " + aiScore);
 
+            // Deduct scores from health
+            // insultGenerator.playerHealth -= aiScore;
+            // insultGenerator.aiHealth -= playerScore;
+
             // Set the flag to true to prevent recalculation
             scoresCalculated = true;
         }
     }
 
-    int CalculateScore(string text)
+    public int CalculateScore(string text)
     {
         int score = 1; // Default score is 1 point
 
         // Convert the text to lower case for case-insensitive matching
         text = text.ToLower();
+
+        // Count the number of words in the text
+        // int wordCount = CountWords(text);
+
+        // Add 2 points if the word count is 8 or more
+        // if (wordCount >= 8)
+        // {
+        //     score += 2;
+        // }
 
         // Check if the text contains specific combinations in the correct order
         if (HasCombination(text, insultGenerator.beginningsList, insultGenerator.otherList, insultGenerator.beginningsList, insultGenerator.middlesList, insultGenerator.endingsList))
@@ -49,6 +62,14 @@ public class ScoringSystem : MonoBehaviour
         else if (HasCombination(text, insultGenerator.beginningsList, insultGenerator.middlesList, insultGenerator.otherList, insultGenerator.beginningsList, insultGenerator.endingsList))
         {
             score = 12;
+        }
+        else if (HasCombination(text, insultGenerator.beginningsList, insultGenerator.middlesList, insultGenerator.beginningsList, insultGenerator.middlesList, insultGenerator.endingsList))
+        {
+            score = 12;
+        }
+        else if (HasCombination(text, insultGenerator.beginningsList, insultGenerator.middlesList, insultGenerator.beginningsList, insultGenerator.endingsList))
+        {
+            score = 8;
         }
         else if (HasCombination(text, insultGenerator.beginningsList, insultGenerator.otherList, insultGenerator.middlesList, insultGenerator.endingsList))
         {
@@ -65,6 +86,38 @@ public class ScoringSystem : MonoBehaviour
         else if (HasCombination(text, insultGenerator.beginningsList, insultGenerator.otherList, insultGenerator.beginningsList, insultGenerator.endingsList))
         {
             score = 3;
+        }
+        else if (HasCombination(text, insultGenerator.beginningsList, insultGenerator.middlesList, insultGenerator.middlesList, insultGenerator.endingsList))
+        {
+            score = -3;
+        }
+        else if (HasCombination(text, insultGenerator.beginningsList, insultGenerator.endingsList))
+        {
+            score = -3;
+        }
+        else if (HasCombination(text, insultGenerator.middlesList, insultGenerator.endingsList))
+        {
+            score = -3;
+        }
+        else if (HasCombination(text, insultGenerator.otherList, insultGenerator.endingsList))
+        {
+            score = -3;
+        }
+        else if (HasCombination(text, insultGenerator.beginningsList))
+        {
+            score = -3;
+        }
+        else if (HasCombination(text, insultGenerator.otherList))
+        {
+            score = -3;
+        }
+        else if (HasCombination(text, insultGenerator.middlesList))
+        {
+            score = -3;
+        }
+        else if (HasCombination(text, insultGenerator.endingsList))
+        {
+            score = -3;
         }
 
         return score;
@@ -95,5 +148,14 @@ public class ScoringSystem : MonoBehaviour
 
         return true;
     }
+
+    // private int CountWords(string text)
+    // {
+    //     // Split the text into words by spaces
+    //     string[] words = text.Split(' ');
+
+    //     // Return the number of words
+    //     return words.Length;
+    // }
 }
 

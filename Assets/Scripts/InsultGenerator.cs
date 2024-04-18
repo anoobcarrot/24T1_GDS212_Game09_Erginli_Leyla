@@ -3,6 +3,7 @@ using UnityEngine.UI;
 using TMPro;
 using System.Collections.Generic;
 using System.Linq;
+using System.Collections;
 
 public class InsultGenerator : MonoBehaviour
 {
@@ -29,14 +30,47 @@ public class InsultGenerator : MonoBehaviour
     private int playerTurns = 0;
     private int aiTurns = 0;
 
+    private List<string> playerChosenWords = new List<string>(); // List to store player's chosen words
+    private List<string> aiChosenWords = new List<string>(); // List to store AI's chosen words
+
+    private bool roundResultDisplayed = false;
+
+    public int playerHealth = 100;
+    public int aiHealth = 100;
+    public Image playerHealthBar;
+    public Image aiHealthBar;
+    public TextMeshProUGUI playerDeductionText;
+    public TextMeshProUGUI aiDeductionText;
+    public ScoringSystem scoringSystem;
+
+    public GameObject gameOverPanel;
+    public TextMeshProUGUI winnerText;
+
     void Start()
     {
+        Time.timeScale = 1;
         GenerateButtons();
         UpdateTurnText();
+        gameOverPanel.SetActive(false);
     }
 
-    void Update()
+    private void Update()
     {
+        // Check if player's health is 0 or below
+        if (playerHealth <= 0)
+        {
+            // Game over for player
+            GameOver("AI");
+            return;
+        }
+
+        // Check if AI's health is 0 or below
+        if (aiHealth <= 0)
+        {
+            // Game over for AI
+            GameOver("Player");
+            return;
+        }
 
         // Check if it's AI's turn and AI hasn't reached endgame
         if (!isPlayerTurn && !aiEndGame)
@@ -72,11 +106,194 @@ public class InsultGenerator : MonoBehaviour
             }
         }
 
-        if (aiEndGame && playerEndGame)
+        if (aiEndGame && playerEndGame && !roundResultDisplayed)
         {
             isPlayerTurn = false;
+            SetButtonInteractability(false);
             turnText.text = "Round Complete!";
+            StartCoroutine(DisplayRoundResultWithDelay());
+            roundResultDisplayed = true;
         }
+    }
+
+    void GameOver(string winner)
+    {
+        Time.timeScale = 0;
+        // Disable button interaction
+        SetButtonInteractability(false);
+
+        // Delete all buttons in the container
+        foreach (Transform child in buttonContainer)
+        {
+            Destroy(child.gameObject);
+        }
+
+        // Display Game Over panel/image
+        gameOverPanel.SetActive(true);
+
+        // Display winner text
+        winnerText.text = winner + " wins best insulter! Don't know if that's a good thing or a bad thing...";
+    }
+
+    IEnumerator DisplayRoundResultWithDelay()
+    {
+        yield return new WaitForSeconds(3f);
+        StartCoroutine(DisplayRoundResult());
+    }
+
+    IEnumerator DisplayRoundResult()
+    {
+        // Clear player and AI text boxes
+        playerText.text = "";
+        aiText.text = "";
+
+        // Gradually display words chosen by the player
+        foreach (string word in playerChosenWords)
+        {
+            yield return StartCoroutine(DisplayWordByLetter(playerText, word));
+            playerText.text += " "; // Add a space after displaying each word
+        }
+
+        yield return new WaitForSeconds(1f);
+        // Calculate and deduct player's score from AI's health
+        int playerRoundScore = scoringSystem.CalculateScore(playerText.text);
+        if (playerRoundScore < 0)
+        {
+            // Deduct player's negative score from player's health
+            playerHealth -= Mathf.Abs(playerRoundScore);
+            UpdatePlayerHealthBar();
+            StartCoroutine(DisplayPlayerDeduction(playerRoundScore));
+        }
+        else
+        {
+            // Deduct player's score from AI's health
+            aiHealth -= playerRoundScore;
+            UpdateAIHealthBar();
+            StartCoroutine(DisplayAIDeduction(playerRoundScore));
+        }
+
+        // Wait for a short delay before displaying AI's text
+        yield return new WaitForSeconds(1f);
+
+        // Gradually display words chosen by the AI
+        foreach (string word in aiChosenWords)
+        {
+            yield return StartCoroutine(DisplayWordByLetter(aiText, word));
+            aiText.text += " "; // Add a space after displaying each word
+        }
+
+        yield return new WaitForSeconds(1f);
+
+        // Calculate and deduct AI's score from player's health
+        int aiRoundScore = scoringSystem.CalculateScore(aiText.text);
+        if (aiRoundScore < 0)
+        {
+            // Deduct AI's negative score from AI's health
+            aiHealth -= Mathf.Abs(aiRoundScore);
+            UpdateAIHealthBar();
+            StartCoroutine(DisplayAIDeduction(aiRoundScore));
+        }
+        else
+        {
+            // Deduct AI's score from player's health
+            playerHealth -= aiRoundScore;
+            UpdatePlayerHealthBar();
+            StartCoroutine(DisplayPlayerDeduction(aiRoundScore));
+        }
+
+        // Wait for 1 second
+        yield return new WaitForSeconds(1.5f);
+
+        // Call a method to handle any post-round actions
+        HandlePostRoundActions();
+    }
+
+    IEnumerator DisplayWordByLetter(TextMeshProUGUI textMeshPro, string word)
+    {
+        // Split the word into letters
+        char[] letters = word.ToCharArray();
+
+        // Display each letter gradually
+        for (int i = 0; i < letters.Length; i++)
+        {
+            // Append the current letter to the text
+            textMeshPro.text += letters[i];
+
+            // Wait for a short duration
+            yield return new WaitForSeconds(0.1f);
+        }
+    }
+
+    IEnumerator DisplayPlayerDeduction(int deductionAmount)
+    {
+        // Display deduction text for player
+        playerDeductionText.text = "-" + deductionAmount.ToString();
+        playerDeductionText.gameObject.SetActive(true);
+
+        // Wait for 1 second
+        yield return new WaitForSeconds(1f);
+
+        // Hide deduction text for player
+        playerDeductionText.gameObject.SetActive(false);
+    }
+
+    IEnumerator DisplayAIDeduction(int deductionAmount)
+    {
+        // Display deduction text for AI
+        aiDeductionText.text = "-" + deductionAmount.ToString();
+        aiDeductionText.gameObject.SetActive(true);
+
+        // Wait for 1 second
+        yield return new WaitForSeconds(1f);
+
+        // Hide deduction text for AI
+        aiDeductionText.gameObject.SetActive(false);
+    }
+
+    void UpdatePlayerHealthBar()
+    {
+        // Update player health bar
+        playerHealthBar.fillAmount = Mathf.Clamp01(playerHealth / 100f); 
+    }
+
+    void UpdateAIHealthBar()
+    {
+        // Update AI health bar
+        aiHealthBar.fillAmount = Mathf.Clamp01(aiHealth / 100f);
+    }
+
+    void HandlePostRoundActions()
+    {
+        // Clear player and AI chosen words lists
+        playerChosenWords.Clear();
+        aiChosenWords.Clear();
+
+        // Clear player and AI text boxes
+        playerText.text = "";
+        aiText.text = "";
+
+        // Delete all buttons in the container
+        foreach (Transform child in buttonContainer)
+        {
+            Destroy(child.gameObject);
+        }
+
+        // Generate new buttons
+        GenerateButtons();
+
+        // Reset game state
+        playerEndGame = false;
+        aiEndGame = false;
+        roundResultDisplayed = false;
+        playerTurns = 0;
+        aiTurns = 0;
+
+        // Set player's turn
+        isPlayerTurn = true;
+        UpdateTurnText();
+
+        // Enable button interactability for player's turn
+        SetButtonInteractability(true);
     }
 
     void UpdateTurnText()
@@ -144,6 +361,28 @@ public class InsultGenerator : MonoBehaviour
         }
     }
 
+    void SetButtonInteractability(bool interactable)
+    {
+        Button[] buttons = buttonContainer.GetComponentsInChildren<Button>();
+        foreach (Button button in buttons)
+        {
+            button.interactable = interactable;
+        }
+    }
+
+    public void EndingButton()
+    {
+        if (!playerEndGame)
+        {
+            playerText.text += (string.IsNullOrEmpty(playerText.text) ? "" : "!");
+            playerEndGame = true;
+            isPlayerTurn = false;
+            UpdateTurnText();
+            playerChosenWords.Add("!");
+            SetButtonInteractability(false);
+        }
+    }
+
     void OnButtonClick(string word, GameObject buttonGO)
     {
         // Disable button interaction if the game has ended
@@ -151,6 +390,9 @@ public class InsultGenerator : MonoBehaviour
 
         // Append the selected word to the current text
         playerText.text += (string.IsNullOrEmpty(playerText.text) ? "" : " ") + word;
+
+        // Add the chosen word to the list of player's chosen words
+        playerChosenWords.Add(word);
 
         // Destroy the button game object
         Destroy(buttonGO);
@@ -203,6 +445,7 @@ public class InsultGenerator : MonoBehaviour
         // Check if AI's turn is already in progress
         if (!isAIsTurnInProgress && !aiEndGame)
         {
+            SetButtonInteractability(false);
             // Set the flag to indicate AI's turn is in progress
             isAIsTurnInProgress = true;
 
@@ -331,6 +574,9 @@ public class InsultGenerator : MonoBehaviour
         // Display AI's chosen word
         aiText.text += (string.IsNullOrEmpty(aiText.text) ? "" : " ") + chosenWord;
 
+        // Add the chosen word to the list of AI's chosen words
+        aiChosenWords.Add(chosenWord);
+
         Debug.Log("AI chose word: " + chosenWord);
 
         // Increment AI's turn count
@@ -371,6 +617,7 @@ public class InsultGenerator : MonoBehaviour
 
         // Reset the flag to indicate AI's turn is complete
         isAIsTurnInProgress = false;
+        SetButtonInteractability(true);
     }
 
     string GetWordFromList(List<string> wordList)
